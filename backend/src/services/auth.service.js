@@ -1,24 +1,14 @@
-const ApiError = require("../utils/ApiError");
-const accountsRepo = require("../repositories/accounts.repo");
-const passwordUtil = require("../utils/password");
-const jwtUtil = require("../utils/jwt");
+const pool = require("../config/db");
 
-async function login({ username, password }) {
-  const acc = await accountsRepo.findByUsername(username);
-  if (!acc) throw new ApiError(401, "Invalid username or password");
-  if (acc.status !== "ACTIVE") throw new ApiError(403, "Account is not active");
-
-  const ok = await passwordUtil.compare(password, acc.password);
-  if (!ok) throw new ApiError(401, "Invalid username or password");
-
-  const payload = {
-    accountId: acc.id,
-    username: acc.username,
-    role: acc.role,
-    employeeId: acc.employeeId || null,
-  };
-
-  return { accessToken: jwtUtil.sign(payload), account: payload };
+async function getPermissionsByRole(role) {
+  const [rows] = await pool.query(
+    `SELECT p.code
+     FROM RolePermissions rp
+     JOIN Permissions p ON p.id = rp.permissionId
+     WHERE rp.role = ? AND rp.allow = TRUE`,
+    [role]
+  );
+  return rows.map(r => r.code);
 }
 
-module.exports = { login };
+module.exports = { getPermissionsByRole };
